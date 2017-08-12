@@ -1,7 +1,7 @@
 # svba
 
-svba is a web-based interface to keep track of StockStram. You can find the main
-svba instance [here](https://svba.null.ist). It runs in flask and your wsgi
+svba is a web-based interface to keep track of StockStream. You can find the
+main svba instance [here](https://svba.null.ist). It runs in flask and your wsgi
 implementation of choice.
 
 To keep the data updated, you'll have to set up cron jobs that run `gen_data.py`
