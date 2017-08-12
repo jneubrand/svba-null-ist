@@ -646,8 +646,14 @@
                 margin: 1rem 0;
                 padding: 0;
             }
-            .grayed {
-                opacity: .4;
+            .grayed, .grayed a {
+                color: #999;
+            }
+            .grayed a {
+                border-bottom-color: #DDD;
+            }
+            .grayed a:hover, .grayed a:focus {
+                border-bottom-color: #999;
             }
             h2 {
                 margin-left: -1rem;
