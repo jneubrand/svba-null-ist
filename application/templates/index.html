@@ -327,19 +327,22 @@
                         pe.classList.add('hover-red');
                     }
                     e.appendChild(pe);
+
+                    let stocks = '';
+
                     for (let stock of allStocks) {
-                        let se = document.createElement('div'), itidx = -1;
+                        let itidx = -1, se;
                         for (let i in data[time].s) {
                             if (data[time].s[i].t == stock) {
                                 itidx = i;
                                 break;
                             }
                         }
-                        se.classList.add('stock');
-                        se.setAttribute('stock', stock);
-                        se.setAttribute('tabindex', '0');
                         if (itidx != -1) {
                             let stockInfo = data[time].s[itidx];
+                            se = '<div class="stock ' +
+                                 (stockInfo.n == 1 ? 'amt-one' : 'amt-multiple') +
+                                 '" stock="' + stock + '" tabindex="0" ';
                             if (lastStockInfo[stock]) {
                                 if (typeof portfolioValueGainByStock[stock] == 'undefined') {
                                     portfolioValueGainByStock[stock] = 0;
@@ -349,61 +352,65 @@
 
                             if (['deltaCPerc5', 'deltaOAbs5', 'deltaOAbsTotal'].indexOf(options['c']) != -1) {
                                 if (!lastStockInfo[stock]) {
-                                    se.style.backgroundColor = getColor(null, options['c']);
+                                    se += 'style="background-color:' + getColor(null, options['c']) + '" ';
                                 } else if (options['c'] == 'deltaCPerc5') {
-                                    se.style.backgroundColor = getColor(
+                                    se += 'style="background-color:' + getColor(
                                         (stockInfo.p - lastStockInfo[stock].p) / lastStockInfo[stock].p,
-                                        options['c']);
+                                        options['c']) + '" ';
                                 } else if (options['c'] == 'deltaOAbs5') {
-                                    se.style.backgroundColor = getColor(
+                                    se += 'style="background-color:' + getColor(
                                         stockInfo.p * lastStockInfo[stock].n - lastStockInfo[stock].p * lastStockInfo[stock].n,
-                                        options['c']);
+                                        options['c']) + '" ';
                                 } else if (options['c'] == 'deltaOAbsTotal') {
-                                    se.style.backgroundColor = getColor(
+                                    se += 'style="background-color:' + getColor(
                                         portfolioValueGainByStock[stock],
-                                        options['c']);
+                                        options['c']) + '" ';
                                 }
                             } else if (options['c'] == 'tv') {
-                                se.style.backgroundColor = getColor(stockInfo.p * stockInfo.n, options['c']);
+                                se += 'style="background-color:' + getColor(stockInfo.p * stockInfo.n, options['c']) + '" ';
                             } else if (options['c'] == 'pcb') {
-                                se.style.backgroundColor = getColor((stockInfo.p * stockInfo.n - stockInfo.c * stockInfo.n), options['c']);
+                                se += 'style="background-color:' + getColor((stockInfo.p * stockInfo.n - stockInfo.c * stockInfo.n), options['c']) + '" ';
                             } else {
-                                se.style.backgroundColor = getColor(stockInfo[options['c']], options['c']);
+                                se += 'style="background-color:' + getColor(stockInfo[options['c']], options['c']) + '" ';
                             }
 
-                            se.setAttribute('amt', Math.floor(stockInfo.n));
-                            se.setAttribute('mktval', formatCurrency(stockInfo.p));
-                            se.setAttribute('totalval', formatCurrency(stockInfo.p * stockInfo.n));
-                            se.setAttribute('costbasis', formatCurrency(stockInfo.c));
-                            se.setAttribute('pvc', formatCurrency(stockInfo.p * stockInfo.n - stockInfo.c * stockInfo.n));
+                            se += 'amt="' + Math.floor(stockInfo.n) + '"';
+                            se += 'mktval="' + formatCurrency(stockInfo.p) + '"';
+                            se += 'totalval="' + formatCurrency(stockInfo.p * stockInfo.n) + '"';
+                            se += 'costbasis="' + formatCurrency(stockInfo.c) + '"';
+                            se += 'pvc="' + formatCurrency(stockInfo.p * stockInfo.n - stockInfo.c * stockInfo.n) + '"';
                             if (lastStockInfo[stock]) {
-                                se.setAttribute('pricerel5', formatCurrency(
-                                    (stockInfo.p - lastStockInfo[stock].p)/lastStockInfo[stock].p));
-                                se.setAttribute('priceabs5', formatCurrency(
-                                    stockInfo.p * lastStockInfo[stock].n - lastStockInfo[stock].p * lastStockInfo[stock].n));
-                                se.setAttribute('daygain', formatCurrency(
-                                    portfolioValueGainByStock[stock]));
+                                se += 'pricerel5="' + formatCurrency(
+                                    (stockInfo.p - lastStockInfo[stock].p)/lastStockInfo[stock].p) + '" ';
+                                se += 'priceabs5="' + formatCurrency(
+                                    stockInfo.p * lastStockInfo[stock].n - lastStockInfo[stock].p * lastStockInfo[stock].n) + '" ';
+                                se += 'daygain="' + formatCurrency(
+                                    portfolioValueGainByStock[stock]) + '" ';
                             }
-                            se.classList.add(stockInfo.n == 1 ? 'amt-one' : 'amt-multiple');
                             lastStockInfo[stock] = stockInfo;
                         } else {
-                            se.classList.add('amt-zero');
                             if (stock in portfolioValueGainByStock) {
                                 let daygain = portfolioValueGainByStock[stock];
-                                se.setAttribute('daygain', formatCurrency(daygain));
+                                se = '<div class="stock amt-zero" ' +
+                                     'stock="' + stock + '" tabindex="0" '+
+                                     'daygain="' + daygain + '"';
+                            } else {
+                                se = '<div class="stock amt-zero" ' +
+                                     'stock="' + stock + '" tabindex="0" ';
                             }
                         }
-                        e.appendChild(se);
+                        stocks += se + '></div>';
                     }
+                    e.innerHTML += stocks;
                     main_el.appendChild(e);
+                    main.appendChild(main_el);
                 }
-                main.appendChild(main_el);
                 // For information purposes about cumulative estimates
-                console.log('Hi there! The profit estimations here aren\'t perfect' +
-                            '(because we can\'t get precise sale/acquisition prices for shares from StockStream).' +
-                            'The error in the currently shown graph is as follows:',
-                            ['Total profit today:', lastPortfolioValue - firstPortfolioValue],
-                            ['Sum of per-share profit estimations:', Object.values(portfolioValueGainByStock).reduce((a, b) => a + b, 0)]);
+                console.log('Hi there! The profit estimations here aren\'t perfect ' +
+                            '(because we can\'t get precise sale/acquisition prices for shares from StockStream). ' +
+                            'The error in the currently shown graph is as follows:' +
+                            '\nTotal profit today: ' + (lastPortfolioValue - firstPortfolioValue) +
+                            '\nSum of per-share profit estimations: ' + Object.values(portfolioValueGainByStock).reduce((a, b) => a + b, 0));
             }
             function updateListing(data) {
                 let header = document.querySelector('header'),
@@ -424,11 +431,11 @@
                     main.innerHTML = '<em>Loading...</em>';
                     setTimeout(() => {
                         req(selD.value, {'c': selC.value, 's': selS.value});
-                        if (legend) {
-                            legend.parentNode.removeChild(legend);
+                        if (window.legend) {
+                            window.legend.parentNode.removeChild(window.legend);
                         }
-                        legend = generateLegend(selC.value);
-                        header.appendChild(legend);
+                        window.legend = generateLegend(selC.value);
+                        header.appendChild(window.legend);
                     }, 1);
                 }
                 let generateLegend = (metric) => {
