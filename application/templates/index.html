@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>svba.∅</title>
+        <link rel="icon" type="image/x-icon" href="/static/favicon.png"/>
+        <link rel="icon" type="image/png" href="/static/favicon-lg.png" sizes="196x196"/>
+        <link rel="apple-touch-icon-precomposed" href="/static/favicon-lg.png" sizes="196x196"/>
+        <meta name="description" content="Track and visualize StockStream's historical progress."/>
+        <meta property="og:image" content="/static/favicon-lg.png"/>
+    </head>
+    <body>
+        <section class="digest">
+        </section>
+        <header>
+            <h1>
+                svba.∅<span class="grayed">: a <a href="https://stockstream.live">stockstream</a> tracker</span>
+            </h1>
+            <div id="controls"></div>
+        </header>
+        <main><em>Loading...</em></main>
+        <noscript><h1>This page requires javascript.</h1></noscript>
+        <footer>
+            <h2>See also</h2>
+            <p>
+                <ul>
+                    <li><b><a href="http://stockstream.live/portfolio.html">Official portfolio site</a></b></li>
+                    <li><a href="https://ssapp.avertly.co">ssapp.avertly.co</a></li>
+                    <li><a href="https://stockstream.abal.moe">stockstream.abal.moe</a></li>
+                    <li><a href="http://mechrono.x10host.com/stock/">Mechrono's tracker</a></li>
+                </ul>
+            </p>
+            <h2>Glossary</h2>
+            <p>
+                <ul>
+                    <li><b>Σ Val</b>:
+                        Total value of a stock held</li>
+                    <li><b>Cost Basis</b>:
+                        How much shares cost when they were bought</li>
+                    <li><b>Σ Profit Since Buy</b>:
+                        How much profit has been made vs. cost basis (total)</li>
+                    <li><b>%∆ Price</b>:
+                        Percentage change in price</li>
+                    <li><b>Cumulative Profit</b>:
+                        How much portfolio value was added during the day by a stock</li>
+                </ul>
+                <em>Note that cumulative profit &amp; 5-min profit values are estimates</em>
+            </p>
+            <h2>Additional information</h2>
+            <p>
+                Information displayed on this page may be inaccurate. This page
+                is not intended to be used as investment advice, and should not
+                be misconstrued as such. This page <em>should</em> be used to
+                keep track of what <a href="http://stockstream.live">StockStream</a>
+                is doing.
+            </p>
+            <p>
+                Due to StockStream API limitations, the values displayed for
+                per-stock profit/loss are estimates.
+            </p>
+            <h2>API</h2>
+            <p>
+                You can access data used for this site like
+                <a href="/data/2017-06-01.json">this</a>, with a list available
+                <a href="/data">here</a>. (<code>Accept-encoding: gzip</code>
+                preferred to save bandwidth.) Please don't send more than
+                <em>one automated query per minute</em>, and be sure to set your
+                User Agent to something unique (like
+                <code>Stock Stream Telegram Bot</code>). If you fail to adhere
+                to that rule, your IP address may be blocked permanently. As on
+                this page, no guarantees about the accuracy of data nor the
+                availability of the API are made. The files usually update
+                within 30 seconds of every full five minutes while the NYSE
+                is open.
+            </p>
+            <p>
+                If you're interested in more fine-grained data, you can check
+                out the
+                <a href="http://stockstream.live/portfolio.html">StockStream API</a>
+                or the
+                <a href="https://api.robinhood.com/quotes/?symbols=AMD,TSLA">Robinhood Quote API</a>.
+                Please be sure to adhere to their respective terms of use.
+            </p>
+            <p>
+                Additionally, gzips of minutely data are available by request
+                (@johannesn on the
+                <a href="https://discord.gg/xnrKgEj">StockStream Discord</a>)
+            </p>
+            <p id="valediction">{{ genstr.decode('utf-8') }}</p>
+        </footer>
+        <script type="text/javascript">
+            'use strict';
+            const schemes = {
+                n: {
+                    cutoff: 20,
+                    colorL: x => 'hsl(' + 240 + ',' + 100 + '%,' + (100-2*x) + '%)',
+                    colorG: x => 'hsl(' + ((240 + (x-20)*2)%360) + ',' + 100 + '%,' + (60) + '%)',
+                    range: [0, 1, 100],
+                    val: x => x,
+                    labelIf: x => !(x % 10),
+                    label: x => x
+                }, tv: {
+                    cutoff: 750,
+                    colorL: x => 'hsl(' + 240 + ',' + 100 + '%,' + (100-.06*x) + '%)',
+                    colorG: x => 'hsl(' + ((240 + (x-750)*.02)%360) + ',' + 100 + '%,' + (55) + '%)',
+                    range: [0, 125, 14000],
+                    val: x => x,
+                    labelIf: x => !(x % 2000),
+                    label: x => x/1000 + 'k'
+                }, deltaCPerc5: {
+                    cutoff: 0,
+                    colorL: x => 'hsl(' + 0 + ',' + (100) + '%,' + (100-40*Math.pow(Math.abs(x), .3)) + '%)',
+                    colorG: x => 'hsl(' + 140 + ',' + (100) + '%,' + (100-40*Math.pow(Math.abs(x), .3)) + '%)',
+                    range: [-.4, .005, .400001],
+                    val: x => x,
+                    labelIf: x => !(Math.round(x * 10000) != 0),
+                    label: x => Math.round(x)
+                }, deltaOAbs5: {
+                    cutoff: 0,
+                    colorL: x => 'hsl(' + 0 + ',' + (100) + '%,' + (100-20*Math.pow(Math.abs(x), .3)) + '%)',
+                    colorG: x => 'hsl(' + 140 + ',' + (100) + '%,' + (100-20*Math.pow(Math.abs(x), .3)) + '%)',
+                    range: [-4, .1, 4.001],
+                    val: x => Math.pow(Math.abs(x), 1/.3) * (Math.abs(x)/x),
+                    labelIf: x => !(Math.round(x*10) % 10),
+                    label: x => x == 0 ? '0' : Math.round(Math.pow(Math.abs(x), 1/.3)) * (Math.abs(x)/x)
+                }, deltaOAbsTotal: {
+                    cutoff: 0,
+                    colorL: x => 'hsl(' + 0 + ',' + (100) + '%,' + (100-10*Math.pow(Math.abs(x), .3)) + '%)',
+                    colorG: x => 'hsl(' + 140 + ',' + (100) + '%,' + (100-10*Math.pow(Math.abs(x), .3)) + '%)',
+                    range: [-8, .2, 8.001],
+                    val: x => Math.pow(Math.abs(x), 1/.3) * (Math.abs(x)/x),
+                    labelIf: x => !(Math.round(x*10) % 10),
+                    label: x => x == 0 ? '0' : Math.round(Math.pow(Math.abs(x), 1/.3)) * (Math.abs(x)/x)
+                }, pcb: {
+                    cutoff: 0,
+                    colorL: x => 'hsl(' + 0 + ',' + (100) + '%,' + (100-10*Math.pow(Math.abs(x), .3)) + '%)',
+                    colorG: x => 'hsl(' + 140 + ',' + (100) + '%,' + (100-10*Math.pow(Math.abs(x), .3)) + '%)',
+                    range: [-8, .2, 8.001],
+                    val: x => Math.pow(Math.abs(x), 1/.3) * (Math.abs(x)/x),
+                    labelIf: x => !(Math.round(x*10) % 10),
+                    label: x => x == 0 ? '0' : Math.round(Math.pow(Math.abs(x), 1/.3)) * (Math.abs(x)/x)
+                },
+            }
+            let list_x = new XMLHttpRequest();
+            list_x.open('GET', '/data', true);
+            list_x.send();
+            list_x.onreadystatechange = () => {
+                if (list_x.readyState == 4 && list_x.status == 200) {
+                    window.availableDays = JSON.parse(list_x.responseText)
+                        .map(x => x.substring(0, 10));
+                    let dig_x = new XMLHttpRequest();
+                    dig_x.open('GET', '/data/digest.json', true);
+                    dig_x.send();
+                    dig_x.onreadystatechange = () => {
+                        if (dig_x.readyState == 4 && dig_x.status == 200) {
+                            updateDigest(JSON.parse(dig_x.responseText));
+                        }
+                    }
+                    updateListing(JSON.parse(list_x.responseText));
+                }
+            }
+            function getColor(x, t) {
+                if (x === 0) {
+                    return '#FFF';
+                } else if (x === null) {
+                    return 'hsl(0, 0%, 50%)';
+                }
+                return (x < schemes[t].cutoff ?
+                        schemes[t].colorL(x) :
+                        schemes[t].colorG(x));
+            }
+            function lzpad(a, n) {
+                a = ''+a;
+                while (a.length < n) a = '0' + a;
+                return a;
+            }
+            function formatTime(t) {
+                return lzpad(t.getHours(), 2) + ':' + lzpad(t.getMinutes(), 2)
+            }
+            function formatDate(t) {
+                return t.getFullYear() + '-' + lzpad(1+t.getMonth(), 2) + '-' +
+                       lzpad(t.getDate(), 2)
+            }
+            function formatCurrency(x) {
+                if (x > 0)
+                    return Math.floor(x) + '.' + lzpad(Math.abs(Math.floor(x % 1 * 100)), 2);
+                else
+                    return '-' + Math.abs(Math.ceil(x)) + '.' + lzpad(Math.abs(Math.ceil(x % 1 * 100)), 2);
+            }
+            function update(data, options) {
+                let main_el = document.createElement('div'),
+                    main = document.querySelector('main'),
+                    allStocks = [],
+                    times = Object.keys(data),
+                    totalDailyProfits = null;
+                main.innerHTML = '';
+
+                times.sort(); // sort object keys of data
+                              // because it's not an array
+                let lastReading = data[times[times.length-1]].s;
+
+                for (let time of times) {
+                    data[time].s.map((x) => {if (allStocks.indexOf(x.t) == -1) allStocks.push(x.t)});
+                }
+
+                if (options.s == 'dp') {
+                    // calculate per-stock daily profits for sorting
+                    let lastStockData = {};
+                    totalDailyProfits = {};
+                    for (let time of times) {
+                        for (let stock of data[time].s) {
+                            if (typeof totalDailyProfits[stock.t] == 'undefined') {
+                                totalDailyProfits[stock.t] = 0;
+                            }
+                            if (stock.t in lastStockData) {
+                                totalDailyProfits[stock.t] += stock.p * lastStockData[stock.t].n -
+                                             lastStockData[stock.t].p * lastStockData[stock.t].n;
+                            }
+                            lastStockData[stock.t] = stock;
+                        }
+                    }
+                }
+
+                let sortables = {
+                    cam: {
+                        cmp: (a, b) => {
+                            let _a = lastReading.filter(x => x.t == a)[0],
+                                _b = lastReading.filter(x => x.t == b)[0];
+                            return (_b && _a) ? _b.n - _a.n
+                                   : (_b) ? 1 : (_a) ? -1 : a.localeCompare(b);
+                        }
+                    }, cmp: {
+                        cmp: (a, b) => {
+                            let _a = lastReading.filter(x => x.t == a)[0],
+                                _b = lastReading.filter(x => x.t == b)[0];
+                            return (_b && _a) ? _b.p - _a.p
+                                   : (_b) ? 1 : (_a) ? -1 : a.localeCompare(b);
+                        }
+                    }, chv: {
+                        cmp: (a, b) => {
+                            let _a = lastReading.filter(x => x.t == a)[0],
+                                _b = lastReading.filter(x => x.t == b)[0];
+                            return (_b && _a) ? _b.n * _b.p - _a.n * _a.p
+                                   : (_b) ? 1 : (_a) ? -1 : a.localeCompare(b);
+                        }
+                    }, pcb: {
+                        cmp: (a, b) => {
+                            let _a = lastReading.filter(x => x.t == a)[0],
+                                _b = lastReading.filter(x => x.t == b)[0];
+                            return (_b && _a) ? (_b.n * _b.p - _b.n * _b.c) - (_a.n * _a.p - _a.n * _a.c)
+                                   : (_b) ? 1 : (_a) ? -1 : a.localeCompare(b);
+                        }
+                    }, dp: {
+                        cmp: (a, b) => totalDailyProfits[b] - totalDailyProfits[a],
+                    }, a: {
+                        cmp: (a, b) => a.localeCompare(b)
+                    }
+                }
+
+                allStocks.sort(options.s in sortables ?
+                               sortables[options.s].cmp :
+                               sortables['a'].cmp);
+
+                let stockListEl = document.createElement('div');
+                stockListEl.classList.add('reading', 'names');
+                stockListEl.innerHTML =
+                    '<div class="timestamp standin">' +
+                        '<span class="date">date</span><span class="time">time</span>' +
+                    '</div>' +
+                    '<div class="cash">cash</div><div class="value">value</div>';
+                for (let stock of allStocks) {
+                    let stockName = document.createElement('div');
+                    stockName.classList.add('stock-name');
+                    stockName.innerHTML = '<span>' + stock + '</span>';
+                    stockListEl.appendChild(stockName);
+                }
+                main_el.appendChild(stockListEl);
+
+                let lastStockInfo = {},
+                    portfolioValueGainByStock = {},
+                    firstPortfolioValue = null,
+                    lastPortfolioValue = 0;
+                for (let time of times) {
+                    let e = document.createElement('div'),
+                        te = document.createElement('div'),
+                        ce = document.createElement('div'),
+                        pe = document.createElement('div'),
+                        pTime = new Date(time);
+                    e.classList.add('reading');
+                    te.classList.add('timestamp');
+                    te.innerHTML = '<span class="date">' + formatDate(pTime) +
+                        '</span> <span class="time">' + formatTime(pTime) + '</span>';
+                    if (pTime.getMinutes() % 15 == 0) {
+                        te.classList.add('major');
+                    } else if (pTime.getMinutes() % 5 == 0) {
+                        te.classList.add('minor');
+                    }
+                    e.appendChild(te);
+                    let pv = data[time].c + data[time].s.reduce((a, b) => a + b.p * b.n, 0);
+                    ce.classList.add('cash');
+                    ce.setAttribute('tabindex', '0');
+                    ce.innerText = '$' + Math.floor(data[time].c) + '.' + lzpad(Math.floor(data[time].c % 1 * 100), 2);
+                    ce.setAttribute('hoverinfo', (Math.round(data[time].c / pv * 10000) / 100) + '% of holdings');
+                    e.appendChild(ce);
+                    if (firstPortfolioValue === null) {
+                        firstPortfolioValue = pv;
+                    }
+                    lastPortfolioValue = pv;
+                    pe.classList.add('value');
+                    pe.setAttribute('tabindex', '0');
+                    pe.innerText = '$' + Math.floor(pv) + '.' + lzpad(Math.floor(pv % 1 * 100), 2);
+                    if (pv > firstPortfolioValue) {
+                        pe.setAttribute('hoverinfo', 'Up ' +
+                            (Math.round((pv - firstPortfolioValue) /
+                                firstPortfolioValue * 10000) / 100) +
+                            '% (' + formatCurrency(pv - firstPortfolioValue) +
+                            ') since beginning of day');
+                        pe.classList.add('hover-green');
+                    } else {
+                        pe.setAttribute('hoverinfo', 'Down ' +
+                            -(Math.round((pv - firstPortfolioValue) /
+                                firstPortfolioValue * 10000) / 100) +
+                            '% (' + formatCurrency(pv - firstPortfolioValue) +
+                            ') since beginning of day');
+                        pe.classList.add('hover-red');
+                    }
+                    e.appendChild(pe);
+                    for (let stock of allStocks) {
+                        let se = document.createElement('div'), itidx = -1;
+                        for (let i in data[time].s) {
+                            if (data[time].s[i].t == stock) {
+                                itidx = i;
+                                break;
+                            }
+                        }
+                        se.classList.add('stock');
+                        se.setAttribute('stock', stock);
+                        se.setAttribute('tabindex', '0');
+                        if (itidx != -1) {
+                            let stockInfo = data[time].s[itidx];
+                            if (lastStockInfo[stock]) {
+                                if (typeof portfolioValueGainByStock[stock] == 'undefined') {
+                                    portfolioValueGainByStock[stock] = 0;
+                                }
+                                portfolioValueGainByStock[stock] += stockInfo.p * lastStockInfo[stock].n - lastStockInfo[stock].p * lastStockInfo[stock].n;
+                            }
+
+                            if (['deltaCPerc5', 'deltaOAbs5', 'deltaOAbsTotal'].indexOf(options['c']) != -1) {
+                                if (!lastStockInfo[stock]) {
+                                    se.style.backgroundColor = getColor(null, options['c']);
+                                } else if (options['c'] == 'deltaCPerc5') {
+                                    se.style.backgroundColor = getColor(
+                                        (stockInfo.p - lastStockInfo[stock].p) / lastStockInfo[stock].p,
+                                        options['c']);
+                                } else if (options['c'] == 'deltaOAbs5') {
+                                    se.style.backgroundColor = getColor(
+                                        stockInfo.p * lastStockInfo[stock].n - lastStockInfo[stock].p * lastStockInfo[stock].n,
+                                        options['c']);
+                                } else if (options['c'] == 'deltaOAbsTotal') {
+                                    se.style.backgroundColor = getColor(
+                                        portfolioValueGainByStock[stock],
+                                        options['c']);
+                                }
+                            } else if (options['c'] == 'tv') {
+                                se.style.backgroundColor = getColor(stockInfo.p * stockInfo.n, options['c']);
+                            } else if (options['c'] == 'pcb') {
+                                se.style.backgroundColor = getColor((stockInfo.p * stockInfo.n - stockInfo.c * stockInfo.n), options['c']);
+                            } else {
+                                se.style.backgroundColor = getColor(stockInfo[options['c']], options['c']);
+                            }
+
+                            se.setAttribute('amt', Math.floor(stockInfo.n));
+                            se.setAttribute('mktval', formatCurrency(stockInfo.p));
+                            se.setAttribute('totalval', formatCurrency(stockInfo.p * stockInfo.n));
+                            se.setAttribute('costbasis', formatCurrency(stockInfo.c));
+                            se.setAttribute('pvc', formatCurrency(stockInfo.p * stockInfo.n - stockInfo.c * stockInfo.n));
+                            if (lastStockInfo[stock]) {
+                                se.setAttribute('pricerel5', formatCurrency(
+                                    (stockInfo.p - lastStockInfo[stock].p)/lastStockInfo[stock].p));
+                                se.setAttribute('priceabs5', formatCurrency(
+                                    stockInfo.p * lastStockInfo[stock].n - lastStockInfo[stock].p * lastStockInfo[stock].n));
+                                se.setAttribute('daygain', formatCurrency(
+                                    portfolioValueGainByStock[stock]));
+                            }
+                            se.classList.add(stockInfo.n == 1 ? 'amt-one' : 'amt-multiple');
+                            lastStockInfo[stock] = stockInfo;
+                        } else {
+                            se.classList.add('amt-zero');
+                            if (stock in portfolioValueGainByStock) {
+                                let daygain = portfolioValueGainByStock[stock];
+                                se.setAttribute('daygain', formatCurrency(daygain));
+                            }
+                        }
+                        e.appendChild(se);
+                    }
+                    main_el.appendChild(e);
+                }
+                main.appendChild(main_el);
+                // For information purposes about cumulative estimates
+                console.log('Hi there! The profit estimations here aren\'t perfect' +
+                            '(because we can\'t get precise sale/acquisition prices for shares from StockStream).' +
+                            'The error in the currently shown graph is as follows:',
+                            ['Total profit today:', lastPortfolioValue - firstPortfolioValue],
+                            ['Sum of per-share profit estimations:', Object.values(portfolioValueGainByStock).reduce((a, b) => a + b, 0)]);
+            }
+            function updateListing(data) {
+                let header = document.querySelector('header'),
+                    controls = document.querySelector('#controls'),
+                    main = document.querySelector('main');
+                data.sort();
+                let req = (item, options) => {
+                    let x = new XMLHttpRequest();
+                    x.open('GET', '/data/' + item, true);
+                    x.send();
+                    x.onreadystatechange = () => {
+                        if (x.readyState == 4 && x.status == 200) {
+                            update(JSON.parse(x.responseText), options);
+                        }
+                    }
+                }
+                let refresh = () => {
+                    main.innerHTML = '<em>Loading...</em>';
+                    setTimeout(() => {
+                        req(selD.value, {'c': selC.value, 's': selS.value});
+                        if (legend) {
+                            legend.parentNode.removeChild(legend);
+                        }
+                        legend = generateLegend(selC.value);
+                        header.appendChild(legend);
+                    }, 1);
+                }
+                let generateLegend = (metric) => {
+                    let legend = document.createElement('div');
+                    legend.classList.add('legend')
+                    for (let i = schemes[metric].range[0];
+                             i <= schemes[metric].range[2];
+                             i += schemes[metric].range[1]) {
+                        let legendE = document.createElement('span');
+                        legendE.style.backgroundColor = getColor(schemes[metric].val(i), metric);
+                        if (schemes[metric].labelIf(i)) {
+                            legendE.innerText = schemes[metric].label(i)
+                        }
+                        legend.appendChild(legendE);
+                    }
+                    return legend;
+                }
+
+                let selD = document.createElement('select'),
+                    selDWrapper = document.createElement('div'),
+                    selDContainer = document.createElement('div'),
+                    selDLabel = document.createElement('span');
+
+                selD.innerHTML = data.map(x => '<option value="' + x + '">' + x.replace('.json', '') + '</option>').join('');
+                selD.selectedIndex = data.length - 1;
+                window.setDay = (d) => {
+                    let idx = 0;
+                    for (let child of selD.childNodes) {
+                        if (child.getAttribute('value') == d + '.json') {
+                            if (idx != selD.selectedIndex) {
+                                selD.selectedIndex = idx;
+                                refresh();
+                            }
+                            break;
+                        }
+                        idx++;
+                    }
+                }
+                selD.addEventListener('input', refresh)
+
+                selDContainer.classList.add('control');
+                selDWrapper.classList.add('select-wrapper');
+                selDLabel.innerText = 'Day';
+
+                selDWrapper.appendChild(selD);
+                selDContainer.appendChild(selDLabel);
+                selDContainer.appendChild(selDWrapper);
+                controls.appendChild(selDContainer);
+
+                let selC = document.createElement('select'),
+                    selCLabel = document.createElement('span'),
+                    selCWrapper = document.createElement('div'),
+                    selCContainer = document.createElement('div');
+                selC.innerHTML = ['deltaCPerc5', 'deltaOAbs5', 'n', 'tv', 'pcb', 'deltaOAbsTotal'].map(
+                    x => '<option value="' + x + '">' + {
+                        'n': 'Current amount held',
+                        'tv': 'Current value held',
+                        'pcb': 'Profit since buy',
+                        'deltaOAbsTotal': 'Cumulative Profit',
+                        'deltaCPerc5': '%∆ in stock price (5min)',
+                        'deltaOAbs5': 'Profit from stock (5min)'
+                    }[x] + '</option>').join('');
+                selC.selectedIndex = 5;
+                selC.addEventListener('input', refresh);
+
+                selCContainer.classList.add('control');
+                selCWrapper.classList.add('select-wrapper');
+                selCLabel.innerText = 'Color';
+
+                selCWrapper.appendChild(selC);
+                selCContainer.appendChild(selCLabel);
+                selCContainer.appendChild(selCWrapper);
+                controls.appendChild(selCContainer);
+
+                let selS = document.createElement('select'),
+                    selSLabel = document.createElement('span'),
+                    selSWrapper = document.createElement('div'),
+                    selSContainer = document.createElement('div');
+                selS.innerHTML = ['a', 'cmp', 'cam', 'chv', 'pcb', 'dp'].map(
+                    x => '<option value="' + x + '">' + {
+                        'a': 'Alphabetical',
+                        'cam': 'Current amount held',
+                        'chv': 'Current value held',
+                        'pcb': 'Profit since buy',
+                        'dp': 'Cumulative Profit',
+                        'cmp': 'Current mkt price'
+                    }[x] + '</option>').join('');
+                selS.selectedIndex = 5;
+                selS.addEventListener('input', refresh);
+
+                selSContainer.classList.add('control');
+                selSWrapper.classList.add('select-wrapper');
+                selSLabel.innerText = 'Sort';
+
+                selSWrapper.appendChild(selS);
+                selSContainer.appendChild(selSLabel);
+                selSContainer.appendChild(selSWrapper);
+                controls.appendChild(selSContainer);
+
+                let refreshButton = document.createElement('button'),
+                    refreshButtonContainer = document.createElement('div');
+                refreshButtonContainer.classList.add('control');
+                refreshButton.innerText = '⟳';
+                refreshButton.addEventListener('click', refresh);
+
+                refreshButtonContainer.appendChild(refreshButton);
+                controls.appendChild(refreshButtonContainer);
+
+                header.appendChild(controls);
+
+                setTimeout(refresh, 1);
+            }
+            function updateDigest(data) {
+                let digEl = document.querySelector('.digest'),
+                    maxPortfolioValue = data.reduce((a, b) =>
+                        Math.max(a, b.d.reduce((c, d) =>
+                            {return Math.max(c, d.d.h + d.d.c)}, 0)), 0),
+                    markingsEl = document.createElement('div');
+                digEl.innerHTML = '';
+                markingsEl.classList.add('digest-legend');
+
+                let markingTop = document.createElement('div');
+                markingTop.classList.add('marking');
+                markingTop.innerText = '$' + Math.round(maxPortfolioValue);
+                markingsEl.appendChild(markingTop);
+
+                let colorLegend = document.createElement('div');
+                colorLegend.innerHTML = 'holdings:<br/><span class="legend-shares">shares</span><br/>' +
+                                       '<span class="legend-cash">cash</span>';
+                colorLegend.classList.add('color-legend');
+                markingsEl.appendChild(colorLegend);
+
+                let expandButton = document.createElement('button'),
+                    expanded = false;
+                expandButton.innerText = '⬇︎';
+                expandButton.addEventListener('click', () => {
+                    expanded = !expanded;
+                    expandButton.innerText = expanded ? '⬆︎' : '⬇︎';
+                    digEl.classList.toggle('expanded', expanded);
+                    digEl.scrollLeft = 10000000;
+                });
+                expandButton.classList.add('control');
+                markingsEl.appendChild(expandButton);
+
+                let markingBottom = document.createElement('div');
+                markingBottom.classList.add('marking');
+                markingBottom.innerText = '$0';
+                markingsEl.appendChild(markingBottom);
+
+                for (let day of data) {
+                    let dayEl = document.createElement('div'),
+                        infoEl = document.createElement('div'),
+                        beginTotal = day.d[0].d.h + day.d[0].d.c,
+                        endTotal = day.d[day.d.length - 1].d.h + day.d[day.d.length - 1].d.c,
+                        infoHTML = '';
+                    if (window.availableDays.indexOf(day.day) == -1) {
+                        dayEl.classList.add('missing');
+                        infoHTML += '(no data)<br/>';
+                    }
+                    infoHTML +=
+                        '<span class="day">' + day.day + '</span><br/>' +
+                        '<span class="change">$' + formatCurrency(beginTotal) +
+                            '<br/> → $' + formatCurrency(endTotal) + '</span><br/>' +
+                        '<span class="' + (endTotal >= beginTotal ? 'profit' : 'loss') + '">$' +
+                            formatCurrency(endTotal - beginTotal) + '</span><br/>' +
+                        '<span class="' + (endTotal >= beginTotal ? 'profit' : 'loss') + '">' +
+                            formatCurrency((endTotal - beginTotal) / beginTotal * 100) + '%</span>';
+                    infoEl.classList.add('info');
+                    infoEl.innerHTML = infoHTML;
+                    dayEl.appendChild(infoEl);
+                    for (let time of day.d) {
+                        let timeEl = document.createElement('div');
+                        timeEl.classList.add('digest-hour');
+                        timeEl.style.height = 100 * (time.d.h + time.d.c) / maxPortfolioValue + '%';
+                        let timeCashEl = document.createElement('div');
+                        timeCashEl.classList.add('digest-hour-cash');
+                        timeCashEl.style.height = 100 * (time.d.c) / (time.d.h + time.d.c) + '%';
+                        timeEl.appendChild(timeCashEl);
+                        dayEl.appendChild(timeEl);
+                    }
+                    dayEl.addEventListener('click', () => {
+                        window.setDay(day.day); // DAE day?
+                    })
+                    dayEl.classList.add('digest-day');
+                    digEl.appendChild(dayEl);
+                }
+                digEl.appendChild(markingsEl);
+                digEl.scrollLeft = 10000000;
+            }
+        </script>
+        <style media="screen">
+            html {
+                font-family: -apple-system, BlinkMacSystemFont, monospace;
+                font-size: 9px;
+                font-variant-numeric: tabular-nums;
+            }
+            body {
+                padding: 1rem 1rem 2.5rem;
+                user-select: none;
+                -moz-user-select: none;
+                -webkit-user-select: none;
+                -ms-user-select: none;
+            }
+            header, footer {
+                font-family: -apple-system, BlinkMacSystemFont, Helvetica, Arial;
+            }
+            footer {
+                user-select: text;
+                -moz-user-select: text;
+                -webkit-user-select: text;
+                -ms-user-select: text;
+            }
+            h1 {
+                font-size: 2.5rem;
+                display: block;
+                font-weight: bold;
+                margin: 1rem 0;
+                padding: 0;
+            }
+            .grayed {
+                opacity: .4;
+            }
+            h2 {
+                margin-left: -1rem;
+            }
+            ul {
+                padding-left: 1.8rem;
+                list-style-type: circle;
+            }
+            a {
+                color: #000;
+                text-decoration: none;
+                border-bottom: 1px solid #BBB;
+            }
+            a:hover {
+                border-bottom: 1px solid #888;
+            }
+            header #controls {
+                display: flex;
+                flex-flow: row;
+                align-items: flex-end;
+            }
+            header .control {
+                display: inline-flex;
+                flex-flow: column;
+                justify-content: flex-end;
+                padding-left: 0;
+                padding-right: 1rem;
+            }
+            header .control span {
+                margin: 0 0 .25em 1em;
+                font-size: 10px;
+            }
+            header .select-wrapper {
+                display: inline-block;
+            }
+            header .select-wrapper:after {
+                content: "▾";
+                position: relative;
+                width: 0;
+                overflow: visible;
+                margin-left: -1.75rem;
+                top: 1px;
+                z-index: -1;
+                font-size: 2rem;
+                color: #CCC;
+            }
+            header select {
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                appearance: none;
+                padding: .5rem 2rem .5rem 1rem;
+                margin: 0;
+                border: 1px solid #CCC;
+                background: transparent;
+                border-radius: 4px;
+            }
+            button {
+                padding: .5rem 1rem .5rem 1rem;
+                margin: 0;
+                box-shadow: none;
+                border: 1px solid #CCC;
+                background: transparent;
+                border-radius: 4px;
+            }
+            button:focus,
+            button:active {
+                color: #888;
+            }
+            header .legend span {
+                font-size: 8px;
+                white-space: pre;
+            }
+            header .legend {
+                text-align: center;
+                margin: 2rem -1rem 2rem;
+                display: flex;
+            }
+            header .legend * {
+                padding: 4px 1px 4px 0;
+                margin-right: -1px;
+            }
+            header .legend *:empty {
+                flex-grow: 1;
+                width: 1px;
+            }
+            footer {
+                padding: 14rem 1rem 1rem;
+                font-size: 11px;
+                line-height: 1.5;
+                margin: 0 auto;
+                max-width: 60rem;
+            }
+            main > em {
+                margin-top: 2rem;
+                display: block;
+                text-align: center;
+            }
+            .reading {
+                height: 1.4rem;
+                display: flex;
+                justify-content: flex-start;
+            }
+            .reading.names {
+                height: 5rem;
+                display: flex;
+                justify-content: flex-start;
+            }
+            .reading.names > *:not(.stock-name) {
+                align-items: flex-end;
+                padding-bottom: 1rem;
+            }
+            .timestamp {
+                margin-right: 1rem;
+                display: flex;
+                align-items: center;
+                color: #BBB;
+                flex-shrink: 0;
+                align-self: stretch;
+            }
+            .timestamp .date {
+                width: 7rem;
+                text-align: center;
+            }
+            .timestamp .time {
+                width: 3rem;
+                text-align: center;
+            }
+            .timestamp.major :last-child {
+                color: #444;
+            }
+            .timestamp.minor :last-child {
+                color: #888;
+            }
+            .timestamp :first-child {
+                margin-right: .5rem;
+            }
+            @media (max-width: 850px) {
+                .timestamp :first-child {
+                    display: none;
+                }
+            }
+            .cash, .value {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                width: 6em;
+                margin-right: 1rem;
+                flex-shrink: 0;
+                align-self: stretch;
+            }
+            .stock-name {
+                display: flex;
+                align-items: flex-end;
+                position: relative;
+                height: 5rem;
+                width: 1.4rem;
+                overflow: hidden;
+                flex-grow: 0;
+                flex-shrink: 1;
+                min-width: 0.3rem;
+            }
+            .stock-name span {
+                display: inline-block;
+                transform: rotate(-90deg);
+                transform-origin: top left;
+            }
+            @media (max-width: 1200px) {
+                .stock-name {
+                    font-size: 8px;
+                }
+            }
+            @media (max-width: 1000px) {
+                .stock-name {
+                    font-size: 7px;
+                }
+            }
+            @media (max-width: 850px) {
+                .stock-name {
+                    display: none;
+                }
+            }
+            .stock {
+                display: inline-block;
+                position: relative;
+                height: 1.4rem;
+                width: 1.4rem;
+                flex-grow: 0;
+                flex-shrink: 1;
+                min-width: 0.3rem;
+            }
+            .stock:hover,
+            .stock:focus {
+                z-index: 1;
+                box-shadow: 0 0 5px #000;
+                outline: none;
+            }
+            .stock:hover {
+                z-index: 11;
+            }
+            .stock:focus {
+                box-shadow: 0 0 10px #000;
+            }
+            .stock:hover:before,
+            .stock:focus:before {
+                content: attr(stock);
+                font-size: 1.5rem;
+                position: absolute;
+                background: #FFF;
+                padding: .5rem;
+            }
+            .stock:hover:before {
+                z-index: 13;
+                left: -26rem;
+                top: .5rem;
+            }
+            .stock:focus:before {
+                z-index: 3;
+                left: -26rem;
+                top: -5.5rem;
+            }
+            .stock.amt-zero:not([daygain]):hover:before,
+            .stock.amt-zero:not([daygain]):focus:before {
+                right: 2rem;
+                top: -.5rem;
+                left: auto;
+                box-shadow: 0 1px 7px -2px #000;
+            }
+            .stock:hover:after,
+            .stock:focus:after {
+                display: inline-block;
+                max-width: 25em;
+                min-width: 25rem;
+                position: absolute;
+                white-space: pre;
+                background: #FFF;
+                padding: .5rem;
+                text-align: right;
+                box-shadow: 0 1px 7px -2px #000;
+                font-size: 11px;
+            }
+            .stock:hover:after {
+                z-index: 12;
+                top: 0;
+                right: 2rem;
+            }
+            .stock:focus:after {
+                z-index: 2;
+                top: -6rem;
+                right: 2rem;
+            }
+            .stock.amt-zero[daygain]:hover:after,
+            .stock.amt-zero[daygain]:focus:after {
+                content: "Our profit (today): $\2009" attr(daygain);
+                padding-top: 3rem;
+            }
+            .stock.amt-one:hover:after,
+            .stock.amt-one:focus:after {
+                content: attr(amt) " share @ $\2009" attr(mktval) "\a" "Σ val: $\2009" attr(totalval) "\a" "cost basis: $\2009" attr(costbasis) "\a" "Σ profit since buy: $\2009" attr(pvc);
+            }
+            .stock.amt-multiple:hover:after,
+            .stock.amt-multiple:focus:after {
+                content: attr(amt) " shares @ $\2009" attr(mktval) "\a" "Σ val: $\2009" attr(totalval) "\a" "cost basis: $\2009" attr(costbasis) "\a" "Σ profit since buy: $\2009" attr(pvc);
+            }
+            .stock.amt-one:hover[pricerel5]:after,
+            .stock.amt-one:focus[pricerel5]:after {
+                content: attr(amt) " share @ $\2009" attr(mktval) "\a" "Σ val: $\2009" attr(totalval) "\a" "cost basis: $\2009" attr(costbasis) "\a" "Σ profit since buy: $\2009" attr(pvc) "\a" "%∆ price (5min): " attr(pricerel5) "\a" "Our profit (5min): $\2009" attr(priceabs5) "\a" "Our profit (today): $\2009" attr(daygain);
+            }
+            .stock.amt-multiple:hover[pricerel5]:after,
+            .stock.amt-multiple:focus[pricerel5]:after {
+                content: attr(amt) " shares @ $\2009" attr(mktval) "\a" "Σ val: $\2009" attr(totalval) "\a" "cost basis: $\2009" attr(costbasis) "\a" "Σ profit since buy: $\2009" attr(pvc) "\a" "%∆ price (5min): " attr(pricerel5) "%" "\a" "Our profit (5min): $\2009" attr(priceabs5) "\a" "Our profit (today): $\2009" attr(daygain);
+            }
+            *[hoverinfo]:hover {
+                text-shadow: 0 1px 0 #CCC;
+            }
+            *[hoverinfo]:focus {
+                text-shadow: 0 1px 0 #888;
+                outline: none;
+            }
+            *[hoverinfo]:hover:after,
+            *[hoverinfo]:focus:after {
+                text-shadow: none;
+                content: attr(hoverinfo);
+                position: absolute;
+                z-index: 4;
+                padding: 1rem;
+                margin: -1rem 0 0 1rem;
+                background: white;
+                left: auto;
+                box-shadow: 0 1px 7px -2px #000;
+                font-size: 11px;
+            }
+            *[hoverinfo]:hover:after {
+                z-index: 15;
+            }
+            *.hover-green[hoverinfo]:hover:after,
+            *.hover-green[hoverinfo]:focus:after {
+                color: #080;
+            }
+            *.hover-red[hoverinfo]:hover:after,
+            *.hover-red[hoverinfo]:focus:after {
+                color: #C00;
+            }
+            #valediction {
+                font-size: 12px;
+                position: absolute;
+                right: 1em;
+                color: #888;
+            }
+            .digest {
+                height: 100px;
+                width: 100vw;
+                margin: 1rem -2rem;
+                padding-bottom: 2rem;
+                display: flex;
+                align-items: flex-end;
+                overflow-x: scroll;
+            }
+            .digest.expanded {
+                height: 400px;
+            }
+            .digest-legend {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                height: 100%;
+                padding-right: 2rem;
+            }
+            .digest-legend .color-legend {
+                margin-left: 1rem;
+            }
+            .digest-legend > .marking {
+                padding: 0 3rem 0 .5rem;
+                text-align: left;
+            }
+            .digest-legend > .marking:first-child {
+                border-top: 1px solid #CCC;
+            }
+            .digest-legend > .marking:last-child {
+                border-bottom: 1px solid #CCC;
+            }
+            .digest-day:first-child {
+                margin-left: 14rem;
+            }
+            .digest-legend .legend-cash:before,
+            .digest-legend .legend-shares:before {
+                display: inline-block;
+                content: "";
+                width: 5px;
+                height: 5px;
+                margin-right: 2px;
+            }
+            .digest-legend .legend-cash:before {
+                background: black;
+            }
+            .digest-legend .legend-shares:before {
+                background: #CCC;
+            }
+            .digest-day {
+                display: flex;
+                height: 100%;
+                align-items: flex-end;
+                padding-right: 1px;
+                position: relative;
+            }
+            .digest-day .info {
+                display: none;
+            }
+            .digest-day:hover .info {
+                display: inline-block;
+                position: absolute;
+                right: 100%;
+                bottom: 0;
+                padding: 1rem 1rem .5rem 1rem;
+                left: auto;
+                white-space: pre;
+                background: white;
+            }
+            .digest-hour {
+                background: #CCC;
+                width: 1px;
+                display: flex;
+                align-items: flex-end;
+            }
+            .digest.expanded .digest-hour {
+                width: 2px;
+            }
+            .digest-day:hover .digest-hour {
+                background: #BBB;
+            }
+            .digest-day.missing .digest-hour {
+                background: repeating-linear-gradient(to top, #CCC, #DDD 3px, #CCC 4px);
+            }
+            .digest-day.missing:hover .digest-hour {
+                background: repeating-linear-gradient(to top, #BBB, #CCC 3px, #DDD 4px);
+            }
+            .digest-hour-cash {
+                background: #222;
+                width: 100%;
+            }
+            .digest-day.missing .digest-hour-cash {
+                background: repeating-linear-gradient(to top, #000, #555 3px, #000 4px);
+            }
+            .digest-day.missing:hover .digest-hour-cash {
+                background: repeating-linear-gradient(to top, #000, #333 3px, #000 4px);
+            }
+        </style>
+    </body>
+</html>
