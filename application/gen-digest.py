@@ -85,17 +85,16 @@ with open(args.outpath, 'w+') as fh:
             # Do we have matching portfolio & market data?
             if d is not None and s is not None and df[-5:] == sf[-5:]:
                 timestamp = f[-19:]
-                timestamp_data = {'c': d['cashBalance']}
+                timestamp_data = {'c': round(d['cashBalance'], 3)}
                 portfolio_value = 0
                 for stock in d['assets']:
                     try:
                         price = get_price(s['results'], stock['symbol'])
                         portfolio_value += float(price) * stock['shares']
-                        timestamp_data['h'] = round(portfolio_value, 3)
                     except Exception as e:
-                        print(df, sf, e, f, timestamp, stock['symbol'])
-                        price = None
+                        pass
                 daily_digest += [{'t': timestamp, 'd': timestamp_data}]
+                timestamp_data['h'] = round(portfolio_value, 3)
                 d = s = None
     json.dump(data, fh, separators=(',', ':'))
 
