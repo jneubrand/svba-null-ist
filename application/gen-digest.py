@@ -95,9 +95,9 @@ with open(args.outpath, 'w+') as fh:
                     except Exception as e:
                         pass
                 timestamp_data['h'] = round(portfolio_value, 3)
-                if (not last_timestamp_data) or \
-                    (timestamp_data['c'] != last_timestamp_data['c'] and
-                     timestamp_data['h'] != last_timestamp_data['h']):
+                if not last_timestamp_data or \
+                   timestamp_data['c'] != last_timestamp_data['c'] or \
+                   timestamp_data['h'] != last_timestamp_data['h']:
                     daily_digest += [{'t': timestamp, 'd': timestamp_data}]
                 d = s = None
                 last_timestamp_data = timestamp_data
