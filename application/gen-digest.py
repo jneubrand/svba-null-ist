@@ -67,6 +67,7 @@ with open(args.outpath, 'w+') as fh:
         daily_digest = []
         data += [{'day': _day, 'd': daily_digest}]
         d = s = df = sf = None
+        last_timestamp_data = None
         for f in day:
             if os.path.basename(f)[0] == 'd' and int(f[-5:-3]) % 30 == 0:
                 try:
@@ -93,9 +94,13 @@ with open(args.outpath, 'w+') as fh:
                         portfolio_value += float(price) * stock['shares']
                     except Exception as e:
                         pass
-                daily_digest += [{'t': timestamp, 'd': timestamp_data}]
                 timestamp_data['h'] = round(portfolio_value, 3)
+                if (not last_timestamp_data) or \
+                    (timestamp_data['c'] != last_timestamp_data['c'] and
+                     timestamp_data['h'] != last_timestamp_data['h']):
+                    daily_digest += [{'t': timestamp, 'd': timestamp_data}]
                 d = s = None
+                last_timestamp_data = timestamp_data
     json.dump(data, fh, separators=(',', ':'))
 
 print('gen-digest | done')
