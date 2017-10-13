@@ -4,9 +4,6 @@ import os.path
 import json
 from utils import *
 
-from json import encoder
-encoder.FLOAT_REPR = lambda o: format(o, '.3f')
-
 parser = argparse.ArgumentParser()
 parser.add_argument('inpath')
 parser.add_argument('outpath')
@@ -55,11 +52,13 @@ with open(os.path.join(os.path.dirname(__file__), 'digest-static.json')) as f:
                 if 'h' in day['d'][-1]['d']:
                     # worth came first, now subtract cash from it
                     day['d'][-1]['d']['h'] -= day['d'][-1]['d']['c']
+                    day['d'][-1]['d']['h'] = round(day['d'][-1]['d']['h'], 3)
             elif 'worth' in datapoint and 'h' not in day['d'][-1]['d']:
                 day['d'][-1]['d']['h'] = round(float(datapoint['worth']), 3)
                 if 'c' in day['d'][-1]['d']:
                     # cash came first, now subtract it from worth
                     day['d'][-1]['d']['h'] -= day['d'][-1]['d']['c']
+                    day['d'][-1]['d']['h'] = round(day['d'][-1]['d']['h'], 3)
 
 print('gen-digest | finished adding static.')
 
