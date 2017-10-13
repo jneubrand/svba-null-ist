@@ -4,6 +4,9 @@ import os.path
 import json
 from utils import *
 
+from json import encoder
+encoder.FLOAT_REPR = lambda o: format(o, '.3f')
+
 parser = argparse.ArgumentParser()
 parser.add_argument('inpath')
 parser.add_argument('outpath')
