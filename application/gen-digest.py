@@ -65,6 +65,8 @@ print('gen-digest | finished adding static.')
 with open(args.outpath, 'w+') as fh:
     for _day in sorted(days.keys()):
         print('gen-digest | proc day', _day)
+        this_year, this_month, this_day =\
+            int(_day[0:4]), int(_day[5:7]), int(_day[8:10])
         day = days[_day]
         daily_digest = []
         data += [{'day': _day, 'd': daily_digest}]
@@ -96,6 +98,10 @@ with open(args.outpath, 'w+') as fh:
                         portfolio_value += float(price) * stock['shares']
                     except Exception as e:
                         pass
+                if this_year > 2017 or (this_year == 2017 and this_month >= 8):
+                    portfolio_value += sum(
+                        0 if o['side'] == 'buy' else o['price'] * o['shares']
+                        for o in d['orders'])
                 timestamp_data['h'] = round(portfolio_value, 3)
                 if not last_timestamp_data or \
                    timestamp_data['c'] != last_timestamp_data['c'] or \
