@@ -98,12 +98,6 @@ with open(args.outpath, 'w+') as fh:
                         portfolio_value += float(price) * stock['shares']
                     except Exception as e:
                         pass
-                if this_year > 2017 or (this_year == 2017 and this_month >= 8):
-                    portfolio_value += sum(
-                        0
-                        if 'side' in o and o['side'] == 'sell'
-                        else o['price'] * o['shares']
-                        for o in d['orders'])
                 timestamp_data['h'] = round(portfolio_value, 3)
                 if not last_timestamp_data or \
                    timestamp_data['c'] != last_timestamp_data['c'] or \
