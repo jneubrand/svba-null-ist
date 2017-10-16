@@ -101,7 +101,7 @@ with open(args.outpath, 'w+') as fh:
                 if this_year > 2017 or (this_year == 2017 and this_month >= 8):
                     portfolio_value += sum(
                         0
-                        if 'side' in o and o['side'] == 'buy'
+                        if 'side' in o and o['side'] == 'sell'
                         else o['price'] * o['shares']
                         for o in d['orders'])
                 timestamp_data['h'] = round(portfolio_value, 3)
