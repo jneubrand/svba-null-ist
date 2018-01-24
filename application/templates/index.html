@@ -303,7 +303,7 @@
                     let pv = data[time].c + data[time].s.reduce((a, b) => a + b.p * b.n, 0);
                     ce.classList.add('cash');
                     ce.setAttribute('tabindex', '0');
-                    ce.innerText = '$' + Math.floor(data[time].c) + '.' + lzpad(Math.floor(data[time].c % 1 * 100), 2);
+                    ce.textContent = '$' + Math.floor(data[time].c) + '.' + lzpad(Math.floor(data[time].c % 1 * 100), 2);
                     ce.setAttribute('hoverinfo', (Math.round(data[time].c / pv * 10000) / 100) + '% of holdings');
                     e.appendChild(ce);
                     if (firstPortfolioValue === null) {
@@ -312,7 +312,7 @@
                     lastPortfolioValue = pv;
                     pe.classList.add('value');
                     pe.setAttribute('tabindex', '0');
-                    pe.innerText = '$' + Math.floor(pv) + '.' + lzpad(Math.floor(pv % 1 * 100), 2);
+                    pe.textContent = '$' + Math.floor(pv) + '.' + lzpad(Math.floor(pv % 1 * 100), 2);
                     if (pv > firstPortfolioValue) {
                         pe.setAttribute('hoverinfo', 'Up ' +
                             (Math.round((pv - firstPortfolioValue) /
@@ -449,7 +449,7 @@
                         let legendE = document.createElement('span');
                         legendE.style.backgroundColor = getColor(schemes[metric].val(i), metric);
                         if (schemes[metric].labelIf(i)) {
-                            legendE.innerText = schemes[metric].label(i)
+                            legendE.textContent = schemes[metric].label(i)
                         }
                         legend.appendChild(legendE);
                     }
@@ -480,7 +480,7 @@
 
                 selDContainer.classList.add('control');
                 selDWrapper.classList.add('select-wrapper');
-                selDLabel.innerText = 'Day';
+                selDLabel.textContent = 'Day';
 
                 selDWrapper.appendChild(selD);
                 selDContainer.appendChild(selDLabel);
@@ -505,7 +505,7 @@
 
                 selCContainer.classList.add('control');
                 selCWrapper.classList.add('select-wrapper');
-                selCLabel.innerText = 'Color';
+                selCLabel.textContent = 'Color';
 
                 selCWrapper.appendChild(selC);
                 selCContainer.appendChild(selCLabel);
@@ -530,7 +530,7 @@
 
                 selSContainer.classList.add('control');
                 selSWrapper.classList.add('select-wrapper');
-                selSLabel.innerText = 'Sort';
+                selSLabel.textContent = 'Sort';
 
                 selSWrapper.appendChild(selS);
                 selSContainer.appendChild(selSLabel);
@@ -540,7 +540,7 @@
                 let refreshButton = document.createElement('button'),
                     refreshButtonContainer = document.createElement('div');
                 refreshButtonContainer.classList.add('control');
-                refreshButton.innerText = '⟳';
+                refreshButton.textContent = '⟳';
                 refreshButton.addEventListener('click', refresh);
 
                 refreshButtonContainer.appendChild(refreshButton);
@@ -561,7 +561,7 @@
 
                 let markingTop = document.createElement('div');
                 markingTop.classList.add('marking');
-                markingTop.innerText = '$' + Math.round(maxPortfolioValue);
+                markingTop.textContent = '$' + Math.round(maxPortfolioValue);
                 markingsEl.appendChild(markingTop);
 
                 let colorLegend = document.createElement('div');
@@ -572,10 +572,10 @@
 
                 let expandButton = document.createElement('button'),
                     expanded = false;
-                expandButton.innerText = '⬇︎';
+                expandButton.textContent = '⬇︎';
                 expandButton.addEventListener('click', () => {
                     expanded = !expanded;
-                    expandButton.innerText = expanded ? '⬆︎' : '⬇︎';
+                    expandButton.textContent = expanded ? '⬆︎' : '⬇︎';
                     digEl.classList.toggle('expanded', expanded);
                     digEl.scrollLeft = 10000000;
                 });
@@ -584,7 +584,7 @@
 
                 let markingBottom = document.createElement('div');
                 markingBottom.classList.add('marking');
-                markingBottom.innerText = '$0';
+                markingBottom.textContent = '$0';
                 markingsEl.appendChild(markingBottom);
 
                 for (let day of data) {
