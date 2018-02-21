@@ -27,40 +27,47 @@ for day in days:
 
 data = []
 
-with open(os.path.join(os.path.dirname(__file__), 'digest-static.json')) as f:
-    digest_static = json.load(f)
-    day = []
-    daily_digest = []
-    for datapoint in digest_static:
-        year, month, nday, hours, mins, secs =\
-            (int(datapoint['time'][a:b]) for (a, b) in
-             [[0, 4], [5, 7], [8, 10], [11, 13], [14, 16], [17, 19]])
-        date = '%02d-%02d-%02d' % (year, month, nday)
-        timestamp = '%02d-%02d-%02dT%02d:%02d:00' %\
-                    (year, month, nday, hours, mins // 30 * 30)
-        if not day or date != day['day']:
-            daily_digest = []
-            day = {'day': date, 'd': daily_digest}
-            data += [day]
-            print('digest | Adding day', day['day'], 'as static')
-        if mins % 30 < 10:
-            if len(day['d']) == 0 or day['d'][-1]['t'] != timestamp:
-                # last item in day stale. push an empty one.
-                day['d'] += [{'t': timestamp, 'd': {}}]
-            if 'cash' in datapoint and 'c' not in day['d'][-1]['d']:
-                day['d'][-1]['d']['c'] = round(float(datapoint['cash']), 3)
-                if 'h' in day['d'][-1]['d']:
-                    # worth came first, now subtract cash from it
-                    day['d'][-1]['d']['h'] -= day['d'][-1]['d']['c']
-                    day['d'][-1]['d']['h'] = round(day['d'][-1]['d']['h'], 3)
-            elif 'worth' in datapoint and 'h' not in day['d'][-1]['d']:
-                day['d'][-1]['d']['h'] = round(float(datapoint['worth']), 3)
-                if 'c' in day['d'][-1]['d']:
-                    # cash came first, now subtract it from worth
-                    day['d'][-1]['d']['h'] -= day['d'][-1]['d']['c']
-                    day['d'][-1]['d']['h'] = round(day['d'][-1]['d']['h'], 3)
 
-print('gen-digest | finished adding static.')
+def vr(value):
+    return round(value, 3)
+
+try:
+    with open(os.path.join(os.path.dirname(__file__),
+                           'digest-static.json')) as f:
+        digest_static = json.load(f)
+        day = []
+        daily_digest = []
+        for datapoint in digest_static:
+            year, month, nday, hours, mins, secs =\
+                (int(datapoint['time'][a:b]) for (a, b) in
+                 [[0, 4], [5, 7], [8, 10], [11, 13], [14, 16], [17, 19]])
+            date = '%02d-%02d-%02d' % (year, month, nday)
+            timestamp = '%02d-%02d-%02dT%02d:%02d:00' %\
+                        (year, month, nday, hours, mins // 30 * 30)
+            if not day or date != day['day']:
+                daily_digest = []
+                day = {'day': date, 'd': daily_digest}
+                data += [day]
+                print('digest | Adding day', day['day'], 'as static')
+            if mins % 30 < 10:
+                if len(day['d']) == 0 or day['d'][-1]['t'] != timestamp:
+                    # last item in day stale. push an empty one.
+                    day['d'] += [{'t': timestamp, 'd': {}}]
+                if 'cash' in datapoint and 'c' not in day['d'][-1]['d']:
+                    day['d'][-1]['d']['c'] = vr(float(datapoint['cash']))
+                    if 'h' in day['d'][-1]['d']:
+                        # worth came first, now subtract cash from it
+                        day['d'][-1]['d']['h'] -= day['d'][-1]['d']['c']
+                        day['d'][-1]['d']['h'] = vr(day['d'][-1]['d']['h'])
+                elif 'worth' in datapoint and 'h' not in day['d'][-1]['d']:
+                    day['d'][-1]['d']['h'] = vr(float(datapoint['worth']))
+                    if 'c' in day['d'][-1]['d']:
+                        # cash came first, now subtract it from worth
+                        day['d'][-1]['d']['h'] -= day['d'][-1]['d']['c']
+                        day['d'][-1]['d']['h'] = vr(day['d'][-1]['d']['h'])
+    print('gen-digest | finished adding static.')
+except Exception as e:
+    pass
 
 with open(args.outpath, 'w+') as fh:
     for _day in sorted(days.keys()):
@@ -90,7 +97,7 @@ with open(args.outpath, 'w+') as fh:
             # Do we have matching portfolio & market data?
             if d is not None and s is not None and df[-5:] == sf[-5:]:
                 timestamp = f[-19:]
-                timestamp_data = {'c': round(d['cashBalance'], 3)}
+                timestamp_data = {'c': vr(d['cashBalance'])}
                 portfolio_value = 0
                 for stock in d['assets']:
                     try:
@@ -98,7 +105,7 @@ with open(args.outpath, 'w+') as fh:
                         portfolio_value += float(price) * stock['shares']
                     except Exception as e:
                         pass
-                timestamp_data['h'] = round(portfolio_value, 3)
+                timestamp_data['h'] = vr(portfolio_value)
                 if not last_timestamp_data or \
                    timestamp_data['c'] != last_timestamp_data['c'] or \
                    timestamp_data['h'] != last_timestamp_data['h']:
